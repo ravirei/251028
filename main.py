@@ -2,81 +2,50 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-# -------------------------------
-# 🌍 기본 설정
-# -------------------------------
-st.set_page_config(
-    page_title="MBTI by Country Explorer",
-    page_icon="🌎",
-    layout="centered"
-)
+st.set_page_config(page_title="MBTI by Country Explorer", page_icon="🌎", layout="centered")
 
 st.title("🌎 MBTI 유형별 국가 TOP 10 시각화")
 st.caption("MBTI 분포 데이터를 업로드하면, 특정 유형이 높은 국가 TOP 10을 시각화합니다.")
 
-# -------------------------------
-# 📂 CSV 업로드
-# -------------------------------
-uploaded_file = st.file_uploader(
-    "CSV 파일을 업로드하세요 (예: countriesMBTI_16types.csv)",
-    type=["csv"]
-)
+uploaded_file = st.file_uploader("CSV 파일을 업로드하세요 (예: countriesMBTI_16types.csv)", type=["csv"])
 
 if uploaded_file is None:
     st.info("👆 CSV 파일을 업로드하면 분석이 시작됩니다.")
     st.stop()
 
-# -------------------------------
-# 📖 데이터 읽기
-# -------------------------------
 try:
     df = pd.read_csv(uploaded_file)
+    # ✅ MBTI 열을 숫자형으로 변환
+    mbti_cols = [c for c in df.columns if c.upper() in [
+        "INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP",
+        "ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"
+    ]]
+    df[mbti_cols] = df[mbti_cols].apply(pd.to_numeric, errors="coerce")
 except Exception as e:
     st.error(f"❌ CSV 파일을 읽는 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# -------------------------------
-# 🔎 기본 검증
-# -------------------------------
 if "Country" not in df.columns:
-    st.error("❌ 'Country' 열을 찾을 수 없습니다. CSV에 국가 이름을 담은 'Country' 열이 필요합니다.")
+    st.error("❌ 'Country' 열을 찾을 수 없습니다.")
     st.stop()
 
-# MBTI 유형 리스트
-mbti_types = [
-    "INTJ", "INTP", "ENTJ", "ENTP",
-    "INFJ", "INFP", "ENFJ", "ENFP",
-    "ISTJ", "ISFJ", "ESTJ", "ESFJ",
-    "ISTP", "ISFP", "ESTP", "ESFP"
-]
-
-available_types = [t for t in mbti_types if t in df.columns]
+available_types = [t for t in mbti_cols if t in df.columns]
 
 if not available_types:
-    st.error("❌ MBTI 유형 열을 찾을 수 없습니다. (INTJ, ENFP 등 열이 포함되어야 합니다.)")
+    st.error("❌ MBTI 유형 열을 찾을 수 없습니다.")
     st.stop()
 
-# -------------------------------
-# 🎯 사용자 선택
-# -------------------------------
-selected_type = st.selectbox(
-    "분석할 MBTI 유형을 선택하세요 👇",
-    available_types
-)
+selected_type = st.selectbox("분석할 MBTI 유형을 선택하세요 👇", available_types)
 
-# -------------------------------
-# 📊 분석 및 시각화
-# -------------------------------
 st.subheader(f"🌟 {selected_type} 유형이 높은 국가 TOP 10")
 
-# 상위 10개 국가 추출
-top10 = (
-    df.nlargest(10, selected_type)[["Country", selected_type]]
-    .copy()
-)
+top10 = df.nlargest(10, selected_type)[["Country", selected_type]].copy()
 top10.columns = ["Country", "Score"]
 
-# Altair 막대 그래프
+if top10["Score"].isnull().all():
+    st.warning("⚠️ 선택한 MBTI 유형에 숫자 데이터가 없습니다. CSV의 형식을 확인하세요.")
+    st.stop()
+
 chart = (
     alt.Chart(top10)
     .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
@@ -92,9 +61,6 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
-# -------------------------------
-# 🧭 원본 데이터 보기
-# -------------------------------
 with st.expander("🔍 원본 데이터 보기"):
     st.dataframe(df)
 
