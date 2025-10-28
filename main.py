@@ -1,10 +1,8 @@
-pip install matplotlib
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 # 1. 예제 CSV 생성
-np.random.seed(42)  # 재현성을 위해 시드 고정
+np.random.seed(42)
 
 num_rows = 100
 data = {
@@ -40,21 +38,11 @@ print(df.isnull().sum())
 print("\n=== 국가별 평균 Life Expectancy ===")
 print(df.groupby("Country")["LifeExpectancy"].mean())
 
-# 6. 간단한 시각화
-plt.figure(figsize=(10,6))
-df.groupby("Country")["GDP"].mean().sort_values().plot(kind="bar", color="skyblue")
-plt.title("국가별 평균 GDP")
-plt.ylabel("GDP")
-plt.xlabel("Country")
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
+# 6. 판다스로 시각화: 국가별 평균 GDP
+print("\n=== 국가별 평균 GDP 시각화 ===")
+avg_gdp = df.groupby("Country")["GDP"].mean().sort_values()
+avg_gdp.plot(kind="bar", title="국가별 평균 GDP", ylabel="GDP", xlabel="Country")
 
-# 7. LifeExpectancy와 GDP 상관 관계
-plt.figure(figsize=(8,6))
-plt.scatter(df["GDP"], df["LifeExpectancy"], c='orange')
-plt.title("GDP vs Life Expectancy")
-plt.xlabel("GDP")
-plt.ylabel("Life Expectancy")
-plt.grid(True)
-plt.show()
+# 7. 판다스로 시각화: GDP vs LifeExpectancy 산점도
+print("\n=== GDP vs Life Expectancy 시각화 ===")
+df.plot.scatter(x="GDP", y="LifeExpectancy", title="GDP vs Life Expectancy")
