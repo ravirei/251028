@@ -15,12 +15,6 @@ if uploaded_file is None:
 
 try:
     df = pd.read_csv(uploaded_file)
-    # ✅ MBTI 열을 숫자형으로 변환
-    mbti_cols = [c for c in df.columns if c.upper() in [
-        "INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP",
-        "ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"
-    ]]
-    df[mbti_cols] = df[mbti_cols].apply(pd.to_numeric, errors="coerce")
 except Exception as e:
     st.error(f"❌ CSV 파일을 읽는 중 오류가 발생했습니다: {e}")
     st.stop()
@@ -29,28 +23,48 @@ if "Country" not in df.columns:
     st.error("❌ 'Country' 열을 찾을 수 없습니다.")
     st.stop()
 
-available_types = [t for t in mbti_cols if t in df.columns]
+# MBTI 열만 추출
+mbti_types = [
+    "INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP",
+    "ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"
+]
+available_types = [t for t in mbti_types if t in df.columns]
 
 if not available_types:
     st.error("❌ MBTI 유형 열을 찾을 수 없습니다.")
     st.stop()
 
+# ✅ MBTI 열 숫자형으로 강제 변환
+for col in available_types:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# ✅ 데이터 검증 출력
+st.write("데이터 타입 확인:", df[available_types].dtypes)
+st.write("샘플 데이터 (상위 5행):", df.head())
+
 selected_type = st.selectbox("분석할 MBTI 유형을 선택하세요 👇", available_types)
 
 st.subheader(f"🌟 {selected_type} 유형이 높은 국가 TOP 10")
 
-top10 = df.nlargest(10, selected_type)[["Country", selected_type]].copy()
+top10 = (
+    df[["Country", selected_type]]
+    .dropna()
+    .sort_values(selected_type, ascending=False)
+    .head(10)
+    .copy()
+)
 top10.columns = ["Country", "Score"]
 
-if top10["Score"].isnull().all():
-    st.warning("⚠️ 선택한 MBTI 유형에 숫자 데이터가 없습니다. CSV의 형식을 확인하세요.")
+if top10["Score"].isnull().all() or top10["Score"].sum() == 0:
+    st.warning("⚠️ 선택한 MBTI 유형의 유효한 수치 데이터가 없습니다. CSV를 확인하세요.")
     st.stop()
 
+# ✅ Altair 그래프 — 숫자 범위에 맞춰 자동 스케일 조정
 chart = (
     alt.Chart(top10)
-    .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+    .mark_bar(size=25, cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
     .encode(
-        x=alt.X("Score:Q", title=f"{selected_type} 점수", sort="descending"),
+        x=alt.X("Score:Q", title=f"{selected_type} 비율(%)", scale=alt.Scale(domain=[0, top10["Score"].max() * 1.1])),
         y=alt.Y("Country:N", title="국가", sort="-x"),
         color=alt.Color("Score:Q", scale=alt.Scale(scheme="blues")),
         tooltip=["Country", "Score"]
@@ -59,7 +73,12 @@ chart = (
     .interactive()
 )
 
-st.altair_chart(chart, use_container_width=True)
+# ✅ 값 라벨 표시 추가
+text = chart.mark_text(align='left', baseline='middle', dx=3).encode(
+    text=alt.Text('Score:Q', format='.2f')
+)
+
+st.altair_chart(chart + text, use_container_width=True)
 
 with st.expander("🔍 원본 데이터 보기"):
     st.dataframe(df)
